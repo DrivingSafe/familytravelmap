@@ -99,6 +99,54 @@
 .tripcover{width:100%;height:96px;object-fit:cover;border-radius:12px;margin-bottom:8px;display:block}
 .tripmeta{font-size:11px;color:var(--muted);margin-bottom:8px}
 
+/* V7-a performance: SVG 필터는 250개 path마다 오프스크린 렌더를 강제해 팬/줌을 느리게 만든다 */
+.map{filter:none}
+.district{filter:none;transition:opacity .15s;stroke:#fffdfb;stroke-width:1.1;vector-effect:non-scaling-stroke;paint-order:stroke}
+.district:hover{filter:none;stroke:#7b5570;stroke-width:2}
+.map>g{will-change:transform}
+.mapwrap{contain:paint}
+
+/* V7-b 감성 파스텔 팔레트 */
+:root{--paper:#fffaf9;--ink:#43323e;--muted:#8e7f89;--line:#efe2e8;--green:#a05b84;--green2:#e8c4d8;--yellow:#f5c542;--red:#e08a8a}
+body{background:radial-gradient(circle at 12% 4%,#ffe6ec 0,transparent 34%),radial-gradient(circle at 88% 12%,#e6e4fa 0,transparent 32%),radial-gradient(circle at 60% 92%,#fdeadb 0,transparent 38%),#fdf6f6}
+body:before{opacity:.10}
+.card{background:rgba(255,250,249,.82);border-color:rgba(255,255,255,.8);box-shadow:0 24px 80px rgba(120,80,105,.10),inset 0 1px 0 rgba(255,255,255,.85)}
+.mapcard{background:linear-gradient(160deg,#fdf7fb 0%,#eef0fa 52%,#fdeef2 100%);border-color:rgba(160,110,145,.14)}
+.mapwrap{background:linear-gradient(180deg,#dfe7fa 0%,#e8e3f7 55%,#f6e6ee 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.8),0 18px 50px rgba(120,80,105,.09)}
+.mapcard:after{background:radial-gradient(circle at 30% 35%,rgba(255,255,255,.6),transparent 34%)}
+.brand small{color:var(--green)}
+.brand h1{color:#4a3543}
+.brand p:before{color:#d99bb6}
+.btn.primary{background:var(--green);border-color:var(--green)}
+.save{background:linear-gradient(135deg,#a05b84,#c47ba4);box-shadow:0 12px 25px rgba(160,91,132,.22)}
+.peek-action{background:var(--green)}
+.peek-name{color:#4a3543}
+.bar i{background:linear-gradient(90deg,#e79ab8,#a05b84)}
+.big{color:var(--green)}
+.mini{background:#fbeff4}
+.tabbtn.active{color:var(--green);background:#fbe8f0}
+.badge.done{background:#fbe8f0;color:var(--green);border-color:#f0c8dc}
+.familypickbtn.active{background:#fbe8f0;border-color:#e6a8c8;color:var(--green)}
+.statusbuttons button.active[data-s="visited"]{background:#fbe8f0;border-color:#e6a8c8;color:var(--green)}
+.statusbuttons button.active[data-s="wishlist"]{background:#fdf1cf;border-color:#e8c866;color:#96731a}
+.familychip{background:#fbeff4}
+.familyaddform button{background:var(--green)}
+.tripdday{color:var(--green)}
+.danger{color:#c2647a}
+.zoomctl button{color:#6d4c62;background:rgba(255,250,249,.95);border-color:rgba(255,255,255,.95)}
+.zoomctl button:active{background:#fbe8f0}
+.search input{background:rgba(255,250,249,.94)}
+.tooltip{background:#5a3f52}
+.toast{background:#5a3f52}
+@media(max-width:1000px){
+ /* 이동하는 지도 위에서 backdrop-filter는 매 프레임 재합성을 유발한다 */
+ .search input,.zoomctl button,.region-peek,.tabbar,.card{backdrop-filter:none}
+ body:before{display:none}
+ .mapcard,.mapwrap{background:linear-gradient(180deg,#dfe7fa 0%,#e8e3f7 55%,#f6e6ee 100%)}
+ .top{background:#fdf6f6}
+ .tabbar{background:rgba(255,250,249,.98)}
+}
+
 /* V6 mobile-first map UX */
 .mapwrap{touch-action:none}
 .map{cursor:grab}
@@ -114,8 +162,8 @@
  /* full-bleed map stage */
  .app{padding-left:0;padding-right:0}
  .top,.plansection,.side{margin-left:12px;margin-right:12px}
- .mapcard{border-radius:0;padding:0;border-left:0;border-right:0;background:linear-gradient(180deg,#cfe0dc 0%,#c4d8d3 100%)}
- .mapwrap{background:linear-gradient(180deg,#cfe0dc 0%,#c4d8d3 100%)}
+ .mapcard{border-radius:0;padding:0;border-left:0;border-right:0}
+ .mapcard,.mapwrap{background:linear-gradient(180deg,#dfe7fa 0%,#e8e3f7 55%,#f6e6ee 100%)}
  .mapcard:after{display:none}
  .mapcard:before{display:none}
  .maphead{display:none}
@@ -152,7 +200,7 @@
 <body>
 <div class="app">
 <header class="top"><div class="brand"><small>MY KOREA JOURNEY</small><h1>나의 대한민국 여행기</h1><p>가본 곳을 색칠하고, 여행의 순간을 가족과 함께 기록합니다.</p></div><div class="actions"><button class="btn primary" id="familyShareOpen">⚙️ 설정</button></div></header>
-<main class="grid"><section class="card mapcard" id="mapSection"><div class="maphead"><strong>대한민국 시·군·구 여행 지도</strong><div class="legend"><span><i class="dot" style="background:#416b5b"></i>가본 곳</span><span><i class="dot" style="background:#e9c76b"></i>가고 싶은 곳</span><span><i class="dot" style="background:#e9e7df"></i>미방문</span></div></div><div class="search"><input id="search" placeholder="지역을 찾아보세요 · 강릉" autocomplete="off" /><div class="search-results" id="searchResults"></div></div><div class="mapwrap"><svg class="map" id="map" viewBox="0 0 900 650" preserveAspectRatio="xMidYMid meet"></svg><div class="tooltip" id="tooltip"></div><div class="zoomctl"><button id="zoomIn" type="button" aria-label="지도 확대">＋</button><button id="zoomOut" type="button" aria-label="지도 축소">－</button><button id="zoomReset" class="reset" type="button" aria-label="전체 보기">⤢</button></div></div><div class="region-peek" id="regionPeek"><div><div class="peek-kicker">SELECTED PLACE</div><div class="peek-name" id="peekName">지역</div><div class="peek-status" id="peekStatus">✓ 방문</div></div><button class="peek-action" id="peekOpen">입력하기</button><div class="peek-hint">한 번 더 누르면 여행 기록을 열 수 있어요</div></div><div class="note">지도 경계 데이터: 공개된 South Korea administrative division GeoJSON/TopoJSON 자료를 사용합니다. 행정구역 데이터는 데이터셋 기준연도에 따라 최신 행정구역과 차이가 있을 수 있습니다.</div></section>
+<main class="grid"><section class="card mapcard" id="mapSection"><div class="maphead"><strong>대한민국 시·군·구 여행 지도</strong><div class="legend"><span><i class="dot" style="background:linear-gradient(135deg,#f4a7bb,#a7d9c8,#f9c6a9)"></i>가본 곳 (지역별 색)</span><span><i class="dot" style="background:#f5c542"></i>가고 싶은 곳</span><span><i class="dot" style="background:#ece2dd"></i>미방문</span></div></div><div class="search"><input id="search" placeholder="지역을 찾아보세요 · 강릉" autocomplete="off" /><div class="search-results" id="searchResults"></div></div><div class="mapwrap"><svg class="map" id="map" viewBox="0 0 900 650" preserveAspectRatio="xMidYMid meet"></svg><div class="tooltip" id="tooltip"></div><div class="zoomctl"><button id="zoomIn" type="button" aria-label="지도 확대">＋</button><button id="zoomOut" type="button" aria-label="지도 축소">－</button><button id="zoomReset" class="reset" type="button" aria-label="전체 보기">⤢</button></div></div><div class="region-peek" id="regionPeek"><div><div class="peek-kicker">SELECTED PLACE</div><div class="peek-name" id="peekName">지역</div><div class="peek-status" id="peekStatus">✓ 방문</div></div><button class="peek-action" id="peekOpen">입력하기</button><div class="peek-hint">한 번 더 누르면 여행 기록을 열 수 있어요</div></div><div class="note">지도 경계 데이터: 공개된 South Korea administrative division GeoJSON/TopoJSON 자료를 사용합니다. 행정구역 데이터는 데이터셋 기준연도에 따라 최신 행정구역과 차이가 있을 수 있습니다.</div></section>
 <aside class="side" id="recordsSection"><section class="card statcard"><div class="eyebrow">KOREA COVERAGE</div><div class="statrow"><div class="big" id="rate">0<span class="unit">%</span></div><div class="sub"><span id="visitedCount">0</span> / <span id="totalCount">0</span> 지역</div></div><div class="bar"><i id="bar"></i></div><div class="sub">나의 대한민국 여행률</div><div class="mini-grid"><div class="mini"><div class="eyebrow">방문</div><b id="visitedMini">0</b></div><div class="mini"><div class="eyebrow">위시리스트</div><b id="wishMini">0</b></div></div></section><section class="card recent"><h3>최근 여행 기록</h3><div id="recent"></div></section><section class="card badges"><h3 style="margin:0 0 14px;font-size:15px">여행 배지</h3><div class="badgegrid" id="badges"></div></section></aside>
 </main>
 <section class="card plansection" id="planSection">
@@ -191,7 +239,29 @@ const PALETTE=['#416b5b','#c86b5b','#e9c76b','#7a6bb0','#4d90b0','#b06b93','#6b9
 function nameColor(name){let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))>>>0;return PALETTE[h%PALETTE.length]}
 function initials(name){return esc(name.trim().slice(0,1)||'?')}
 function status(name){return db[name]?.status||'none'}
-function color(name){const s=status(name);return s==='visited'?'#3d6a58':s==='wishlist'?'#e9be4e':'#dcdccf'}
+// 방문한 지역은 시·도별로 다른 파스텔 색을 입혀 지도가 조각보처럼 보이게 한다 (code 앞 2자리 = 시·도 코드)
+// 인접한 시·도끼리 색이 겹치지 않도록 배치 (이 데이터셋은 구형 KOSTAT 코드를 쓴다: 11 서울 … 39 제주)
+const PROV_COLORS={
+ '11':'#f4a7bb', // 서울
+ '21':'#e79ec6', // 부산
+ '22':'#c9b3e8', // 대구
+ '23':'#ffd9a8', // 인천
+ '24':'#f7c8dd', // 광주
+ '25':'#f2a58f', // 대전
+ '26':'#a8d4ea', // 울산
+ '29':'#d8b8ec', // 세종
+ '31':'#bfc7ec', // 경기
+ '32':'#a3d9c6', // 강원
+ '33':'#f7c98f', // 충북
+ '34':'#eab0d4', // 충남
+ '35':'#cde5a8', // 전북
+ '36':'#9fcdea', // 전남
+ '37':'#f5b0b0', // 경북
+ '38':'#ffc79e', // 경남
+ '39':'#93dcc4'  // 제주
+};
+const UNVISITED='#ece2dd', WISHLIST='#f5c542';
+function colorFor(d){const s=status(d.properties.name);if(s==='wishlist')return WISHLIST;if(s!=='visited')return UNVISITED;return PROV_COLORS[String(d.properties.code||'').slice(0,2)]||'#f4a7bb'}
 
 function renderStats(){const total=features.length, visited=features.filter(f=>status(f.properties.name)==='visited').length, wish=features.filter(f=>status(f.properties.name)==='wishlist').length;const pct=total?Math.round(visited/total*1000)/10:0;$('rate').innerHTML=pct+'<span class="unit">%</span>';$('visitedCount').textContent=visited;$('totalCount').textContent=total;$('visitedMini').textContent=visited;$('wishMini').textContent=wish;$('bar').style.width=pct+'%';
 const rows=Object.entries(db).filter(([n,v])=>v.status==='visited'&&(v.date||v.title||v.memo)).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));$('recent').innerHTML=rows.slice(0,5).map(([n,v])=>`<div class="trip"><div><b>${esc(n)}</b><br><span>${esc(v.title||'여행 기록')}</span>${(v.participants&&v.participants.length)?`<div class="tripmembers" style="margin-top:5px;min-height:0">${v.participants.map(p=>`<span class="familyavatar" style="width:16px;height:16px;font-size:8px;margin-left:-5px;border:2px solid #fffefb;background:${nameColor(p)}">${initials(p)}</span>`).join('')}</div>`:''}</div><span>${v.date||'날짜 없음'}</span></div>`).join('')||'<div class="empty">아직 여행 기록이 없습니다.<br>지도에서 다녀온 지역을 눌러 기록해보세요.</div>';
@@ -206,8 +276,9 @@ svg.attr('viewBox',`0 0 ${mapW} ${mapH}`);
 const pad=Math.round(Math.min(mapW,mapH)*0.04);
 // 독도·울릉도가 경계를 동쪽으로 크게 늘려 본토가 작아지므로, 본토+제주 범위에 맞춰 초기 화면을 잡는다
 const FOCUS={type:'Feature',geometry:{type:'Polygon',coordinates:[[[125.85,33.05],[129.72,33.05],[129.72,38.68],[125.85,38.68],[125.85,33.05]]]}};
-const projection=d3.geoIdentity().reflectY(true).fitExtent([[pad,pad],[mapW-pad,mapH-pad]],FOCUS);const path=d3.geoPath(projection);mapPath=path;const g=svg.append('g');mapG=g;g.selectAll('path').data(features).join('path').attr('class','district').attr('d',path).attr('fill',d=>color(d.properties.name)).on('mousemove',(e,d)=>{const t=$('tooltip');t.textContent=d.properties.name;t.style.left=e.offsetX+'px';t.style.top=e.offsetY+'px';t.style.opacity=1}).on('mouseleave',()=>$('tooltip').style.opacity=0).on('click',(e,d)=>{if(current===d.properties.name && $('regionPeek').classList.contains('show')) openRegion(d.properties.name); else showPeek(d.properties.name)});
-zoomBehavior=d3.zoom().scaleExtent([0.55,14]).on('zoom',ev=>{g.attr('transform',ev.transform);g.selectAll('.district').attr('stroke-width',1.15/Math.sqrt(ev.transform.k))});
+const projection=d3.geoIdentity().reflectY(true).fitExtent([[pad,pad],[mapW-pad,mapH-pad]],FOCUS);const path=d3.geoPath(projection);mapPath=path;const g=svg.append('g');mapG=g;g.selectAll('path').data(features).join('path').attr('class','district').attr('d',path).attr('fill',d=>colorFor(d)).on('mousemove',(e,d)=>{const t=$('tooltip');t.textContent=d.properties.name;t.style.left=e.offsetX+'px';t.style.top=e.offsetY+'px';t.style.opacity=1}).on('mouseleave',()=>$('tooltip').style.opacity=0).on('click',(e,d)=>{if(current===d.properties.name && $('regionPeek').classList.contains('show')) openRegion(d.properties.name); else showPeek(d.properties.name)});
+// stroke 굵기는 CSS의 vector-effect:non-scaling-stroke가 처리하므로 줌마다 250개 path를 건드리지 않는다
+zoomBehavior=d3.zoom().scaleExtent([0.55,14]).on('zoom',ev=>{g.attr('transform',ev.transform)});
 svg.call(zoomBehavior);
 $('regionList').innerHTML=features.map(f=>`<option value="${esc(f.properties.name)}">`).join('');
 renderStats()}
@@ -222,7 +293,7 @@ function hidePeek(){$('regionPeek').classList.remove('show');document.querySelec
 function renderRegionFamilyPick(){$('regionFamilyPick').innerHTML=family.length?family.map(n=>`<button type="button" class="familypickbtn ${regionParticipants.includes(n)?'active':''}" data-name="${esc(n)}">${esc(n)}</button>`).join(''):'<span class="sub">아래 <b>계획</b> 탭에서 가족을 먼저 추가하면 여기서 선택할 수 있어요.</span>';document.querySelectorAll('#regionFamilyPick .familypickbtn').forEach(b=>b.onclick=()=>{b.classList.toggle('active');const n=b.dataset.name;if(b.classList.contains('active')){if(!regionParticipants.includes(n))regionParticipants.push(n)}else{regionParticipants=regionParticipants.filter(x=>x!==n)}})}
 function openRegion(name){current=name;const v=db[name]||{status:'visited'};$('regionName').textContent=name;$('regionStatus').textContent=v.status==='visited'?'방문 완료':v.status==='wishlist'?'가고 싶은 곳':'아직 기록하지 않은 지역';$('date').value=v.date||'';$('title').value=v.title||'';$('memo').value=v.memo||'';$('rating').value=v.rating||'';regionParticipants=[...(v.participants||[])];renderRegionFamilyPick();regionPhotos=[...(v.photos||[])];renderRegionPhotos();document.querySelectorAll('.statusbuttons button').forEach(b=>b.classList.toggle('active',b.dataset.s=== (v.status||'visited')));$('drawer').classList.add('open');hidePeek()}
 
-function refreshMap(){svg.selectAll('.district').attr('fill',d=>color(d.properties.name));renderStats()}
+function refreshMap(){svg.selectAll('.district').attr('fill',d=>colorFor(d));renderStats()}
 document.querySelectorAll('.statusbuttons button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.statusbuttons button').forEach(x=>x.classList.toggle('active',x===b));$('regionStatus').textContent=b.dataset.s==='visited'?'방문 완료':b.dataset.s==='wishlist'?'가고 싶은 곳':'기록 없음'});
 $('save').onclick=()=>{const active=document.querySelector('.statusbuttons button.active');const s=active?.dataset.s||'visited';if(s==='none'){delete db[current]}else db[current]={status:s,date:$('date').value,title:$('title').value.trim(),memo:$('memo').value.trim(),rating:$('rating').value,participants:regionParticipants,photos:regionPhotos,updatedAt:Date.now()};saveDB();$('drawer').classList.remove('open');refreshMap();toast('여행 기록이 저장되었습니다.')};
 $('delete').onclick=()=>{if(current){delete db[current];saveDB();$('drawer').classList.remove('open');refreshMap();toast('기록을 삭제했습니다.')}};$('close').onclick=()=>{$('drawer').classList.remove('open');hidePeek()};$('peekOpen').onclick=()=>{if(current)openRegion(current)};$('drawer').onclick=e=>{if(e.target.id==='drawer')$('drawer').classList.remove('open')};
