@@ -1,6 +1,6 @@
 // MY KOREA JOURNEY — offline app-shell cache (stale-while-revalidate)
 // 코드/지도 데이터를 업데이트했다면 아래 CACHE 버전 문자열을 바꿔서 기존 사용자 캐시를 무효화하세요.
-const CACHE = 'korea-journey-v2';
+const CACHE = 'korea-journey-v3';
 const ASSETS = [
   './',
   './index.html',
