@@ -1,0 +1,16 @@
+{
+  "name": "MY KOREA JOURNEY — 나의 대한민국 여행기",
+  "short_name": "Korea Journey",
+  "description": "가족과 함께 대한민국 방문지를 기록하고 다음 여행을 계획하는 여행 다이어리",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f7f4ee",
+  "theme_color": "#416b5b",
+  "lang": "ko",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
