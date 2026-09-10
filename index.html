@@ -106,6 +106,16 @@
 .map>g{will-change:transform}
 .mapwrap{contain:paint}
 
+/* V8 검색 결과: 이름이 겹치는 지역을 시·도로 구분해 보여준다 */
+.search-result{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sr-main{display:flex;flex-direction:column;gap:2px;min-width:0;text-align:left}
+.sr-main b{font-size:13px;line-height:1.25}
+.sr-prov{font-size:10px;font-weight:700;color:#a494a0;letter-spacing:.01em}
+.sr-status{font-size:10px;font-weight:700;color:#a494a0;flex:none;white-space:nowrap}
+.search-result.search-prov{background:#fbe8f0;border:1px solid #f0c8dc}
+.search-result.search-prov .sr-prov,.search-result.search-prov .sr-status{color:#a05b84}
+.search-hint{padding:9px 12px 5px;font-size:10px;line-height:1.5;color:#a494a0;font-weight:600}
+
 /* V7-b 감성 파스텔 팔레트 */
 :root{--paper:#fffaf9;--ink:#43323e;--muted:#8e7f89;--line:#efe2e8;--green:#a05b84;--green2:#e8c4d8;--yellow:#f5c542;--red:#e08a8a}
 body{background:radial-gradient(circle at 12% 4%,#ffe6ec 0,transparent 34%),radial-gradient(circle at 88% 12%,#e6e4fa 0,transparent 32%),radial-gradient(circle at 60% 92%,#fdeadb 0,transparent 38%),#fdf6f6}
@@ -238,7 +248,13 @@ function renderTripPhotos(){renderPhotoStrip('tripPhotos','tripPhotoInput',tripP
 const PALETTE=['#416b5b','#c86b5b','#e9c76b','#7a6bb0','#4d90b0','#b06b93','#6b9b6f','#b08a4d'];
 function nameColor(name){let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))>>>0;return PALETTE[h%PALETTE.length]}
 function initials(name){return esc(name.trim().slice(0,1)||'?')}
-function status(name){return db[name]?.status||'none'}
+// 기록은 지역 이름이 아니라 고유 코드로 저장한다.
+// '중구'는 6개 시에, '동구'는 6개 시에 존재해서 이름으로 저장하면 한 곳을 기록할 때 전부 함께 칠해진다.
+let featByCode={};
+function regionCode(f){return String(f&&f.properties&&f.properties.code||'')}
+function labelOf(code){const f=featByCode[code];return f?prettyName(f.properties.name):String(code)}
+function provOf(code){return PROV_NAMES[String(code).slice(0,2)]||''}
+function status(code){return db[code]?.status||'none'}
 // 방문한 지역은 시·도별로 다른 파스텔 색을 입혀 지도가 조각보처럼 보이게 한다 (code 앞 2자리 = 시·도 코드)
 // 인접한 시·도끼리 색이 겹치지 않도록 배치 (이 데이터셋은 구형 KOSTAT 코드를 쓴다: 11 서울 … 39 제주)
 const PROV_COLORS={
@@ -261,10 +277,38 @@ const PROV_COLORS={
  '39':'#93dcc4'  // 제주
 };
 const UNVISITED='#ece2dd', WISHLIST='#f5c542';
-function colorFor(d){const s=status(d.properties.name);if(s==='wishlist')return WISHLIST;if(s!=='visited')return UNVISITED;return PROV_COLORS[String(d.properties.code||'').slice(0,2)]||'#f4a7bb'}
+function colorFor(d){const s=status(regionCode(d));if(s==='wishlist')return WISHLIST;if(s!=='visited')return UNVISITED;return PROV_COLORS[regionCode(d).slice(0,2)]||'#f4a7bb'}
 
-function renderStats(){const total=features.length, visited=features.filter(f=>status(f.properties.name)==='visited').length, wish=features.filter(f=>status(f.properties.name)==='wishlist').length;const pct=total?Math.round(visited/total*1000)/10:0;$('rate').innerHTML=pct+'<span class="unit">%</span>';$('visitedCount').textContent=visited;$('totalCount').textContent=total;$('visitedMini').textContent=visited;$('wishMini').textContent=wish;$('bar').style.width=pct+'%';
-const rows=Object.entries(db).filter(([n,v])=>v.status==='visited'&&(v.date||v.title||v.memo)).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));$('recent').innerHTML=rows.slice(0,5).map(([n,v])=>`<div class="trip"><div><b>${esc(n)}</b><br><span>${esc(v.title||'여행 기록')}</span>${(v.participants&&v.participants.length)?`<div class="tripmembers" style="margin-top:5px;min-height:0">${v.participants.map(p=>`<span class="familyavatar" style="width:16px;height:16px;font-size:8px;margin-left:-5px;border:2px solid #fffefb;background:${nameColor(p)}">${initials(p)}</span>`).join('')}</div>`:''}</div><span>${v.date||'날짜 없음'}</span></div>`).join('')||'<div class="empty">아직 여행 기록이 없습니다.<br>지도에서 다녀온 지역을 눌러 기록해보세요.</div>';
+/* --- 검색 인덱스: '중구'처럼 이름이 겹치는 지역을 시·도로 구분하고, 시·도 이름으로도 찾을 수 있게 한다 --- */
+const PROV_NAMES={'11':'서울특별시','21':'부산광역시','22':'대구광역시','23':'인천광역시','24':'광주광역시','25':'대전광역시','26':'울산광역시','29':'세종특별자치시','31':'경기도','32':'강원도','33':'충청북도','34':'충청남도','35':'전라북도','36':'전라남도','37':'경상북도','38':'경상남도','39':'제주특별자치도'};
+const PROV_ALIASES={'11':['서울'],'21':['부산'],'22':['대구'],'23':['인천'],'24':['광주'],'25':['대전'],'26':['울산'],'29':['세종'],'31':['경기'],'32':['강원'],'33':['충북','충청북'],'34':['충남','충청남'],'35':['전북','전라북'],'36':['전남','전라남'],'37':['경북','경상북'],'38':['경남','경상남'],'39':['제주']};
+// 이 데이터셋은 '수원시장안구'처럼 시와 구를 붙여 쓴다 → '수원시 장안구'로 띄워 읽기 쉽게
+function prettyName(n){const m=String(n||'').match(/^(.+?시)(.+구)$/);return m?m[1]+' '+m[2]:String(n||'')}
+let searchIndex=[];
+function buildSearchIndex(){featByCode={};features.forEach(f=>{featByCode[regionCode(f)]=f});searchIndex=features.map(f=>{const code=regionCode(f);const pc=code.slice(0,2);return{f,code,name:f.properties.name||'',pc,prov:PROV_NAMES[pc]||'',display:prettyName(f.properties.name),key:String(f.properties.name||'').replace(/\s/g,'').toLowerCase(),eng:String(f.properties.name_eng||'').toLowerCase().replace(/[\s-]/g,'')}})}
+// 이름으로 저장돼 있던 기존 기록을 코드 기준으로 옮긴다. 이름이 겹치던 기록은 그동안 지도에 전부 칠해져 있었으므로,
+// 화면과 통계가 달라지지 않도록 해당하는 모든 지역으로 옮긴 뒤 사용자가 개별로 지울 수 있게 한다.
+function migrateDbToCodes(){const keys=Object.keys(db);if(!keys.length)return 0;if(keys.every(k=>/^\d{5}$/.test(k)))return 0;
+const byName={};features.forEach(f=>{const n=f.properties.name;(byName[n]=byName[n]||[]).push(regionCode(f))});
+const next={};let moved=0;
+keys.forEach(k=>{if(/^\d{5}$/.test(k)){next[k]=db[k];return}
+ const codes=byName[k];
+ if(codes&&codes.length){codes.forEach(c=>{if(!next[c])next[c]={...db[k]}});moved++}
+ else next[k]=db[k]}); // 행정구역 변경 등으로 매칭이 안 되면 기록을 버리지 않고 남겨둔다
+db=next;saveDB();return moved}
+function matchProvinces(q){return Object.keys(PROV_NAMES).filter(pc=>PROV_NAMES[pc].includes(q)||(PROV_ALIASES[pc]||[]).some(a=>a.includes(q)||q.includes(a)))}
+function searchRegions(term){const q=String(term||'').replace(/\s/g,'').toLowerCase();if(!q)return{provs:[],items:[]};
+const provs=matchProvinces(q);const provSet=new Set(provs);const scored=[];
+searchIndex.forEach(it=>{let s=-1;
+ if(it.key===q)s=0; else if(it.key.startsWith(q))s=1; else if(it.key.includes(q))s=2;
+ else if(it.eng&&it.eng.startsWith(q))s=3; else if(it.eng&&it.eng.includes(q))s=4;
+ else if(provSet.has(it.pc))s=5; // 시·도 이름으로 검색하면 그 시·도의 지역을 전부 보여준다
+ if(s>=0)scored.push({it,s})});
+scored.sort((a,b)=>a.s-b.s||a.it.name.localeCompare(b.it.name,'ko'));
+return{provs,items:scored.map(x=>x.it)}}
+
+function renderStats(){const total=features.length, visited=features.filter(f=>status(regionCode(f))==='visited').length, wish=features.filter(f=>status(regionCode(f))==='wishlist').length;const pct=total?Math.round(visited/total*1000)/10:0;$('rate').innerHTML=pct+'<span class="unit">%</span>';$('visitedCount').textContent=visited;$('totalCount').textContent=total;$('visitedMini').textContent=visited;$('wishMini').textContent=wish;$('bar').style.width=pct+'%';
+const rows=Object.entries(db).filter(([n,v])=>v.status==='visited'&&(v.date||v.title||v.memo)).sort((a,b)=>(b[1].date||'').localeCompare(a[1].date||''));$('recent').innerHTML=rows.slice(0,5).map(([n,v])=>`<div class="trip"><div><b>${esc(labelOf(n))}</b>${provOf(n)?` <span style="font-size:10px;color:#a494a0;font-weight:700">${esc(provOf(n))}</span>`:''}<br><span>${esc(v.title||'여행 기록')}</span>${(v.participants&&v.participants.length)?`<div class="tripmembers" style="margin-top:5px;min-height:0">${v.participants.map(p=>`<span class="familyavatar" style="width:16px;height:16px;font-size:8px;margin-left:-5px;border:2px solid #fffefb;background:${nameColor(p)}">${initials(p)}</span>`).join('')}</div>`:''}</div><span>${v.date||'날짜 없음'}</span></div>`).join('')||'<div class="empty">아직 여행 기록이 없습니다.<br>지도에서 다녀온 지역을 눌러 기록해보세요.</div>';
 const tripCount=Object.keys(trips).length;
 const badges=[['🧭','첫 여행',visited>=1],['🌿','10개 지역',visited>=10],['🗺️','전국 10%',pct>=10],['🏔️','25개 지역',visited>=25],['✦','전국 50%',pct>=50],['🏁','전국 완주',visited===total&&total>0],['🧳','첫 여행 계획',tripCount>=1],['👪','가족 등록',family.length>=2]];
 $('badges').innerHTML=badges.map(b=>`<div class="badge ${b[2]?'done':''}"><span class="ico">${b[0]}</span>${b[1]}</div>`).join('')}
@@ -275,29 +319,62 @@ const wrap=document.querySelector('.mapwrap');mapW=Math.max(320,wrap.clientWidth
 svg.attr('viewBox',`0 0 ${mapW} ${mapH}`);
 const pad=Math.round(Math.min(mapW,mapH)*0.04);
 // 독도·울릉도가 경계를 동쪽으로 크게 늘려 본토가 작아지므로, 본토+제주 범위에 맞춰 초기 화면을 잡는다
-const FOCUS={type:'Feature',geometry:{type:'Polygon',coordinates:[[[125.85,33.05],[129.72,33.05],[129.72,38.68],[125.85,38.68],[125.85,33.05]]]}};
-const projection=d3.geoIdentity().reflectY(true).fitExtent([[pad,pad],[mapW-pad,mapH-pad]],FOCUS);const path=d3.geoPath(projection);mapPath=path;const g=svg.append('g');mapG=g;g.selectAll('path').data(features).join('path').attr('class','district').attr('d',path).attr('fill',d=>colorFor(d)).on('mousemove',(e,d)=>{const t=$('tooltip');t.textContent=d.properties.name;t.style.left=e.offsetX+'px';t.style.top=e.offsetY+'px';t.style.opacity=1}).on('mouseleave',()=>$('tooltip').style.opacity=0).on('click',(e,d)=>{if(current===d.properties.name && $('regionPeek').classList.contains('show')) openRegion(d.properties.name); else showPeek(d.properties.name)});
+// 구면 폴리곤은 감김 방향에 따라 내부가 지구 전체로 해석될 수 있어, 두 모서리 점만으로 범위를 지정한다
+const FOCUS={type:'MultiPoint',coordinates:[[125.85,33.05],[129.72,38.68]]};
+// geoIdentity는 위·경도를 평면 좌표로 취급해 한국 위도에서 지도를 가로로 늘려 눕혀 보이게 한다. 메르카토르로 실제 형상을 맞춘다.
+const projection=d3.geoMercator().fitExtent([[pad,pad],[mapW-pad,mapH-pad]],FOCUS);const path=d3.geoPath(projection);mapPath=path;const g=svg.append('g');mapG=g;g.selectAll('path').data(features).join('path').attr('class','district').attr('d',path).attr('fill',d=>colorFor(d)).on('mousemove',(e,d)=>{const t=$('tooltip');const c=regionCode(d);t.textContent=labelOf(c)+(provOf(c)?' · '+provOf(c):'');t.style.left=e.offsetX+'px';t.style.top=e.offsetY+'px';t.style.opacity=1}).on('mouseleave',()=>$('tooltip').style.opacity=0).on('click',(e,d)=>{const c=regionCode(d);if(current===c && $('regionPeek').classList.contains('show')) openRegion(c); else showPeek(c)});
 // stroke 굵기는 CSS의 vector-effect:non-scaling-stroke가 처리하므로 줌마다 250개 path를 건드리지 않는다
 zoomBehavior=d3.zoom().scaleExtent([0.55,14]).on('zoom',ev=>{g.attr('transform',ev.transform)});
 svg.call(zoomBehavior);
-$('regionList').innerHTML=features.map(f=>`<option value="${esc(f.properties.name)}">`).join('');
+buildSearchIndex();
+migrateDbToCodes();
+// 목적지 자동완성도 시·도를 붙여 '중구'처럼 겹치는 이름을 구분할 수 있게 한다
+$('regionList').innerHTML=searchIndex.map(it=>`<option value="${esc(it.display+' ('+it.prov+')')}">`).join('');
 renderStats()}
-function zoomToFeature(f){if(!zoomBehavior||!mapPath||!f)return;const [[x0,y0],[x1,y1]]=mapPath.bounds(f);const dx=Math.max(x1-x0,1),dy=Math.max(y1-y0,1);const k=Math.max(1,Math.min(10,0.45/Math.max(dx/mapW,dy/mapH)));const cx=(x0+x1)/2,cy=(y0+y1)/2;svg.transition().duration(550).call(zoomBehavior.transform,d3.zoomIdentity.translate(mapW/2,mapH/2).scale(k).translate(-cx,-cy))}
+function zoomToFeatures(list){if(!zoomBehavior||!mapPath||!list||!list.length)return;let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;list.forEach(f=>{const b=mapPath.bounds(f);if(b[0][0]<x0)x0=b[0][0];if(b[0][1]<y0)y0=b[0][1];if(b[1][0]>x1)x1=b[1][0];if(b[1][1]>y1)y1=b[1][1]});if(!isFinite(x0))return;const dx=Math.max(x1-x0,1),dy=Math.max(y1-y0,1);const k=Math.max(1,Math.min(10,0.45/Math.max(dx/mapW,dy/mapH)));const cx=(x0+x1)/2,cy=(y0+y1)/2;svg.transition().duration(550).call(zoomBehavior.transform,d3.zoomIdentity.translate(mapW/2,mapH/2).scale(k).translate(-cx,-cy))}
+function zoomToFeature(f){zoomToFeatures(f?[f]:[])}
 let resizeTimer=null;
 window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(window.topo)draw()},250)});
 $('zoomIn').onclick=()=>{if(zoomBehavior)svg.transition().duration(220).call(zoomBehavior.scaleBy,1.7)};
 $('zoomOut').onclick=()=>{if(zoomBehavior)svg.transition().duration(220).call(zoomBehavior.scaleBy,1/1.7)};
 $('zoomReset').onclick=()=>{if(zoomBehavior)svg.transition().duration(320).call(zoomBehavior.transform,d3.zoomIdentity)};
-function showPeek(name){current=name;const v=db[name]||{status:'visited'};$('peekName').textContent=name;$('peekStatus').textContent=v.status==='visited'?'✓ 방문한 곳':v.status==='wishlist'?'☆ 가고 싶은 곳':'아직 기록하지 않은 지역';$('regionPeek').classList.add('show');document.querySelector('.mapwrap').classList.add('peeking')}
+function showPeek(code){current=code;const v=db[code]||{status:'visited'};$('peekName').textContent=labelOf(code);$('peekStatus').textContent=(provOf(code)?provOf(code)+' · ':'')+(v.status==='visited'?'✓ 방문한 곳':v.status==='wishlist'?'☆ 가고 싶은 곳':'아직 기록하지 않은 지역');$('regionPeek').classList.add('show');document.querySelector('.mapwrap').classList.add('peeking')}
 function hidePeek(){$('regionPeek').classList.remove('show');document.querySelector('.mapwrap').classList.remove('peeking')}
 function renderRegionFamilyPick(){$('regionFamilyPick').innerHTML=family.length?family.map(n=>`<button type="button" class="familypickbtn ${regionParticipants.includes(n)?'active':''}" data-name="${esc(n)}">${esc(n)}</button>`).join(''):'<span class="sub">아래 <b>계획</b> 탭에서 가족을 먼저 추가하면 여기서 선택할 수 있어요.</span>';document.querySelectorAll('#regionFamilyPick .familypickbtn').forEach(b=>b.onclick=()=>{b.classList.toggle('active');const n=b.dataset.name;if(b.classList.contains('active')){if(!regionParticipants.includes(n))regionParticipants.push(n)}else{regionParticipants=regionParticipants.filter(x=>x!==n)}})}
-function openRegion(name){current=name;const v=db[name]||{status:'visited'};$('regionName').textContent=name;$('regionStatus').textContent=v.status==='visited'?'방문 완료':v.status==='wishlist'?'가고 싶은 곳':'아직 기록하지 않은 지역';$('date').value=v.date||'';$('title').value=v.title||'';$('memo').value=v.memo||'';$('rating').value=v.rating||'';regionParticipants=[...(v.participants||[])];renderRegionFamilyPick();regionPhotos=[...(v.photos||[])];renderRegionPhotos();document.querySelectorAll('.statusbuttons button').forEach(b=>b.classList.toggle('active',b.dataset.s=== (v.status||'visited')));$('drawer').classList.add('open');hidePeek()}
+function openRegion(code){current=code;const v=db[code]||{status:'visited'};$('regionName').textContent=labelOf(code);$('regionStatus').textContent=(provOf(code)?provOf(code)+' · ':'')+(v.status==='visited'?'방문 완료':v.status==='wishlist'?'가고 싶은 곳':'아직 기록하지 않은 지역');$('date').value=v.date||'';$('title').value=v.title||'';$('memo').value=v.memo||'';$('rating').value=v.rating||'';regionParticipants=[...(v.participants||[])];renderRegionFamilyPick();regionPhotos=[...(v.photos||[])];renderRegionPhotos();document.querySelectorAll('.statusbuttons button').forEach(b=>b.classList.toggle('active',b.dataset.s=== (v.status||'visited')));$('drawer').classList.add('open');hidePeek()}
 
 function refreshMap(){svg.selectAll('.district').attr('fill',d=>colorFor(d));renderStats()}
 document.querySelectorAll('.statusbuttons button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.statusbuttons button').forEach(x=>x.classList.toggle('active',x===b));$('regionStatus').textContent=b.dataset.s==='visited'?'방문 완료':b.dataset.s==='wishlist'?'가고 싶은 곳':'기록 없음'});
 $('save').onclick=()=>{const active=document.querySelector('.statusbuttons button.active');const s=active?.dataset.s||'visited';if(s==='none'){delete db[current]}else db[current]={status:s,date:$('date').value,title:$('title').value.trim(),memo:$('memo').value.trim(),rating:$('rating').value,participants:regionParticipants,photos:regionPhotos,updatedAt:Date.now()};saveDB();$('drawer').classList.remove('open');refreshMap();toast('여행 기록이 저장되었습니다.')};
 $('delete').onclick=()=>{if(current){delete db[current];saveDB();$('drawer').classList.remove('open');refreshMap();toast('기록을 삭제했습니다.')}};$('close').onclick=()=>{$('drawer').classList.remove('open');hidePeek()};$('peekOpen').onclick=()=>{if(current)openRegion(current)};$('drawer').onclick=e=>{if(e.target.id==='drawer')$('drawer').classList.remove('open')};
-const searchInput=$('search'), searchResults=$('searchResults'); function renderSearch(q){const term=q.trim(); if(!term){searchResults.classList.remove('open');searchResults.innerHTML='';svg.selectAll('.district').style('opacity',1);return;} const hits=features.filter(f=>String(f.properties.name||'').includes(term)).slice(0,10); svg.selectAll('.district').style('opacity',d=>!term||String(d.properties.name||'').includes(term)?1:.13); searchResults.innerHTML=hits.length?hits.map((f,i)=>`<button class="search-result" data-name="${esc(f.properties.name)}"><b>${esc(f.properties.name)}</b><small>${status(f.properties.name)==='visited'?'✓ 방문':status(f.properties.name)==='wishlist'?'☆ 위시리스트':'미방문'}</small></button>`).join(''):`<div style="padding:14px 12px;font-size:12px;color:#8b8c85">찾는 지역이 없습니다.</div>`; searchResults.classList.add('open'); searchResults.querySelectorAll('.search-result').forEach(b=>b.onclick=()=>{showPeek(b.dataset.name);searchInput.value=b.dataset.name;searchResults.classList.remove('open');searchInput.blur(); const el=features.find(f=>f.properties.name===b.dataset.name); if(el){svg.selectAll('.district').style('opacity',d=>d===el?1:.18);zoomToFeature(el)}});} searchInput.oninput=e=>renderSearch(e.target.value); document.addEventListener('click',e=>{if(!e.target.closest('.search'))searchResults.classList.remove('open')});
+const searchInput=$('search'), searchResults=$('searchResults');
+const SEARCH_LIMIT=15;
+function statusLabel(code){const s=status(code);return s==='visited'?'✓ 방문':s==='wishlist'?'☆ 위시리스트':'미방문'}
+// 여행 계획의 목적지 문자열을 실제 지역에 연결한다. '중구 (부산광역시)'처럼 시·도가 붙어 있으면 그것으로 구분하고,
+// 이름만 적혀 있는데 여러 곳에 같은 이름이 있으면 어느 곳인지 알 수 없으므로 연결하지 않는다.
+function resolveDestination(str){const raw=String(str||'').trim();if(!raw)return null;
+const m=raw.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+if(m){const nm=m[1].replace(/\s/g,''),pv=m[2].trim();const hit=searchIndex.find(it=>it.key===nm.toLowerCase()&&it.prov===pv);if(hit)return hit.f}
+const key=raw.replace(/\s/g,'').toLowerCase();
+const exact=searchIndex.filter(it=>it.key===key||it.display.replace(/\s/g,'').toLowerCase()===key);
+return exact.length===1?exact[0].f:null}
+function dimTo(set){svg.selectAll('.district').style('opacity',d=>!set||set.has(d)?1:.13)}
+function renderSearch(q){const term=q.trim();
+if(!term){searchResults.classList.remove('open');searchResults.innerHTML='';dimTo(null);return}
+const {provs,items}=searchRegions(term);
+dimTo(new Set(items.map(it=>it.f)));
+if(!items.length&&!provs.length){searchResults.innerHTML=`<div style="padding:14px 12px;font-size:12px;color:#8b8c85">찾는 지역이 없습니다.</div>`;searchResults.classList.add('open');return}
+const shown=items.slice(0,SEARCH_LIMIT);
+// 시·도 이름으로 찾은 경우, 그 시·도 전체로 이동하는 줄을 맨 위에 둔다
+const provRows=provs.map(pc=>{const n=searchIndex.filter(it=>it.pc===pc).length;return `<button class="search-result search-prov" data-prov="${pc}"><span class="sr-main"><b>${esc(PROV_NAMES[pc])}</b><span class="sr-prov">${n}개 지역 전체 보기</span></span><span class="sr-status">지도 이동</span></button>`}).join('');
+const rows=shown.map(it=>`<button class="search-result" data-code="${esc(it.code)}"><span class="sr-main"><b>${esc(it.display)}</b><span class="sr-prov">${esc(it.prov)}</span></span><span class="sr-status">${statusLabel(it.code)}</span></button>`).join('');
+const more=items.length>SEARCH_LIMIT?`<div class="search-hint">그 밖에 ${items.length-SEARCH_LIMIT}곳 더 있어요 — 시·도 이름을 함께 입력하면 좁힐 수 있습니다</div>`:'';
+searchResults.innerHTML=provRows+rows+more;
+searchResults.classList.add('open');
+searchResults.querySelectorAll('.search-prov').forEach(b=>b.onclick=()=>{const pc=b.dataset.prov;const list=searchIndex.filter(it=>it.pc===pc);searchInput.value=PROV_NAMES[pc];searchResults.classList.remove('open');searchInput.blur();dimTo(new Set(list.map(it=>it.f)));zoomToFeatures(list.map(it=>it.f))});
+searchResults.querySelectorAll('.search-result:not(.search-prov)').forEach(b=>b.onclick=()=>{const code=b.dataset.code;showPeek(code);searchInput.value=labelOf(code);searchResults.classList.remove('open');searchInput.blur();const el=featByCode[code];if(el){dimTo(new Set([el]));zoomToFeature(el)}})}
+searchInput.oninput=e=>renderSearch(e.target.value);
+document.addEventListener('click',e=>{if(!e.target.closest('.search'))searchResults.classList.remove('open')});
 
 /* --- mobile tabs --- */
 document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>{document.documentElement.dataset.tab=b.dataset.tab;document.querySelectorAll('.tabbtn').forEach(x=>x.classList.toggle('active',x===b))});
@@ -345,7 +422,7 @@ $('tripClose').onclick=()=>$('tripDrawer').classList.remove('open');
 $('tripDrawer').onclick=e=>{if(e.target.id==='tripDrawer')$('tripDrawer').classList.remove('open')};
 $('tripSave').onclick=()=>{currentTrip.title=$('tripTitle').value.trim();currentTrip.destination=$('tripDest').value.trim();currentTrip.startDate=$('tripStart').value;currentTrip.endDate=$('tripEnd').value;currentTrip.lodging=$('tripLodging').value.trim();currentTrip.transport=$('tripTransport').value.trim();currentTrip.budget=$('tripBudget').value.trim();currentTrip.memo=$('tripMemo').value.trim();currentTrip.checklist=tripChecklistState.filter(c=>c.text.trim()).map(c=>({id:c.id,text:c.text.trim(),done:!!c.done}));currentTrip.photos=tripPhotosState;currentTrip.status=currentTrip.status||'planned';currentTrip.createdAt=currentTrip.createdAt||Date.now();currentTrip.updatedAt=Date.now();trips[currentTrip.id]=currentTrip;saveTrips();$('tripDrawer').classList.remove('open');renderTrips();renderStats();toast('여행 계획을 저장했습니다.')};
 $('tripDelete').onclick=()=>{if(currentTrip&&trips[currentTrip.id]){delete trips[currentTrip.id];saveTrips();$('tripDrawer').classList.remove('open');renderTrips();renderStats();toast('계획을 삭제했습니다.')}};
-$('tripComplete').onclick=()=>{currentTrip.status='done';currentTrip.updatedAt=Date.now();trips[currentTrip.id]=currentTrip;saveTrips();let note='';const destName=currentTrip.destination;const matched=features.find(f=>f.properties.name===destName);if(matched){const prev=db[destName]||{};db[destName]={status:'visited',date:prev.date||currentTrip.endDate||currentTrip.startDate||'',title:prev.title||currentTrip.title||'',memo:prev.memo||currentTrip.memo||'',rating:prev.rating||'',participants:Array.from(new Set([...(prev.participants||[]),...(currentTrip.participants||[])])),updatedAt:Date.now()};saveDB();refreshMap();note=' 지도에도 방문으로 기록했어요.'}$('tripDrawer').classList.remove('open');renderTrips();renderStats();toast('여행을 완료 처리했습니다.'+note)};
+$('tripComplete').onclick=()=>{currentTrip.status='done';currentTrip.updatedAt=Date.now();trips[currentTrip.id]=currentTrip;saveTrips();let note='';const matched=resolveDestination(currentTrip.destination);if(matched){const destCode=regionCode(matched);const prev=db[destCode]||{};db[destCode]={status:'visited',date:prev.date||currentTrip.endDate||currentTrip.startDate||'',title:prev.title||currentTrip.title||'',memo:prev.memo||currentTrip.memo||'',rating:prev.rating||'',participants:Array.from(new Set([...(prev.participants||[]),...(currentTrip.participants||[])])),updatedAt:Date.now()};saveDB();refreshMap();note=' 지도에도 방문으로 기록했어요.'}$('tripDrawer').classList.remove('open');renderTrips();renderStats();toast('여행을 완료 처리했습니다.'+note)};
 
 /* --- settings: family name --- */
 const FNKEY='my-korea-journey-familyname-v1';
@@ -360,9 +437,9 @@ $('familyGroupNameSave').onclick=()=>{familyName=$('familyGroupName').value.trim
 $('shareApp').onclick=async()=>{const url=location.origin+location.pathname;const text=(familyName?familyName+'네처럼 ':'')+'우리 가족도 여행 기록을 남겨보세요! 방문한 곳을 지도에 표시하고 다음 여행도 계획할 수 있어요.';if(navigator.share){try{await navigator.share({title:'MY KOREA JOURNEY',text,url})}catch{}}else{try{await navigator.clipboard.writeText(url+'\n\n'+text);toast('링크를 복사했습니다.')}catch{toast('공유를 지원하지 않는 브라우저입니다.')}}};
 
 /* --- backup / restore --- */
-$('backup').onclick=()=>{const blob=new Blob([JSON.stringify({version:3,exportedAt:new Date().toISOString(),records:db,family,trips},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='my-korea-journey-backup.json';a.click();URL.revokeObjectURL(a.href);toast('백업 파일을 만들었습니다.')};
+$('backup').onclick=()=>{const blob=new Blob([JSON.stringify({version:4,exportedAt:new Date().toISOString(),records:db,family,trips},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='my-korea-journey-backup.json';a.click();URL.revokeObjectURL(a.href);toast('백업 파일을 만들었습니다.')};
 $('restore').onclick=()=>$('file').click();
-$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const x=JSON.parse(await f.text());db=x.records||x;if(Array.isArray(x.family))family=x.family;if(x.trips)trips=x.trips;saveDB();saveFamily();saveTrips();refreshMap();renderTrips();renderFamilyChips();toast('여행 기록을 복원했습니다.')}catch{toast('백업 파일을 읽지 못했습니다.')}};
+$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const x=JSON.parse(await f.text());db=x.records||x;if(Array.isArray(x.family))family=x.family;if(x.trips)trips=x.trips;saveDB();saveFamily();saveTrips();migrateDbToCodes();refreshMap();renderTrips();renderFamilyChips();toast('여행 기록을 복원했습니다.')}catch{toast('백업 파일을 읽지 못했습니다.')}};
 $('statShare').onclick=async()=>{const text=`나의 대한민국 여행률 ${$('rate').textContent} · ${$('visitedCount').textContent}/${$('totalCount').textContent} 지역 방문`;if(navigator.share){try{await navigator.share({title:'MY KOREA JOURNEY',text})}catch{}}else{try{await navigator.clipboard.writeText(text);toast('공유 문구를 복사했습니다.')}catch{toast('공유를 지원하지 않는 브라우저입니다.')}}};
 
 /* --- image export --- */
