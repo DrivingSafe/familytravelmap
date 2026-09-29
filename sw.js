@@ -1,11 +1,15 @@
 // MY KOREA JOURNEY — offline app-shell cache (stale-while-revalidate)
 // 코드/지도 데이터를 업데이트했다면 아래 CACHE 버전 문자열을 바꿔서 기존 사용자 캐시를 무효화하세요.
-const CACHE = 'korea-journey-v5';
+const CACHE = 'korea-journey-v6';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './icon.svg',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-maskable-512.png',
+  './apple-touch-icon.png',
   'https://cdn.jsdelivr.net/npm/d3@7',
   'https://cdn.jsdelivr.net/npm/topojson-client@3',
   'https://raw.githubusercontent.com/southkorea/southkorea-maps/master/kostat/2018/json/skorea-municipalities-2018-topo-simple.json'
