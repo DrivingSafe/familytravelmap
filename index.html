@@ -98,6 +98,15 @@ h1,h2,h3{margin:0}
       padding:15px;border-radius:var(--r-md);margin-top:12px;font-weight:750;
       box-shadow:0 12px 25px rgba(160,91,132,.22)}
 .danger{width:100%;border:0;background:transparent;color:var(--danger);padding:12px;margin-top:4px;font-size:13px}
+.linkbtn{border:0;background:transparent;color:var(--accent);font-size:12px;font-weight:700;padding:9px 0 2px}
+
+.diag{margin-top:6px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--paper);overflow:hidden}
+.diag-row{display:flex;gap:9px;padding:11px 13px;border-top:1px solid var(--line);font-size:12px;line-height:1.5}
+.diag-row:first-child{border-top:0}
+.diag-mark{flex:0 0 auto;font-size:12px}
+.diag-row.bad{background:#fdf3f5}
+.diag-label{font-weight:700;color:var(--ink)}
+.diag-detail{display:block;color:var(--muted);font-weight:400;margin-top:2px}
 
 .bar{height:7px;background:#f1e6eb;border-radius:20px;overflow:hidden}
 .bar i{display:block;height:100%;border-radius:20px;background:linear-gradient(90deg,#e79ab8,var(--accent))}
@@ -568,6 +577,8 @@ h1,h2,h3{margin:0}
     <div class="sub" style="margin-bottom:9px">홈 화면에 추가하면 앱처럼 열리고, 인터넷이 약한 곳에서도 기록할 수 있어요.</div>
     <button class="btn block" id="installApp">📲 홈 화면에 추가</button>
     <p class="hint" id="installHint"></p>
+    <button class="linkbtn" id="installDiagToggle">설치가 안 되면 눌러보세요 →</button>
+    <div class="diag" id="installDiag" hidden></div>
   </div>
 
   <div class="field"><label>데이터 저장 위치</label>
@@ -1301,27 +1312,43 @@ $('familyGroupNameSave').onclick = () => {
 
 /* --- 앱 설치 --- */
 let installPrompt = null;
-const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+const UA = navigator.userAgent;
+const isIOS = () => /iphone|ipad|ipod/i.test(UA);
 const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+// 카카오톡·네이버 등 앱 안에 들어 있는 브라우저는 "홈 화면에 추가"를 지원하지 않는다.
+// 설치가 안 된다는 문의는 대부분 이 경우라서, 브라우저 이름까지 알려주고 크롬으로 옮기게 안내한다.
+const IN_APP = [
+  [/KAKAOTALK/i, '카카오톡'], [/KAKAOSTORY/i, '카카오스토리'],
+  [/NAVER\(inapp|NAVER\//i, '네이버 앱'], [/DaumApps|Daum\//i, '다음 앱'],
+  [/Instagram/i, '인스타그램'], [/FBAN|FBAV|FB_IAB/i, '페이스북'],
+  [/\bLine\//i, '라인'], [/everytimeapp/i, '에브리타임'],
+  [/;\s*wv\)/i, '앱 안의 브라우저']
+];
+const inAppName = () => (IN_APP.find(([re]) => re.test(UA)) || [])[1] || null;
 
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; updateInstallUI() });
 addEventListener('appinstalled', () => { installPrompt = null; updateInstallUI(); toast('앱이 설치되었습니다.') });
 
 function updateInstallUI(){
-  const btn = $('installApp'), hint = $('installHint');
+  const btn = $('installApp'), hint = $('installHint'), app = inAppName();
   if(isStandalone()){
     btn.disabled = true; btn.textContent = '✓ 이미 설치되어 있어요';
     hint.textContent = '지금 앱으로 실행 중입니다.';
   }else if(installPrompt){
     btn.disabled = false; btn.textContent = '📲 홈 화면에 추가';
     hint.textContent = '';
+  }else if(app){
+    btn.disabled = false; btn.textContent = '🔗 링크 복사하기';
+    hint.textContent = `지금 ${app} 안의 브라우저로 보고 있어서 설치할 수 없어요. 링크를 복사해 크롬에 붙여넣고 다시 열어주세요.`;
   }else if(isIOS()){
     btn.disabled = false; btn.textContent = '📲 설치 방법 보기';
     hint.textContent = '아이폰은 사파리에서 아래 공유 버튼 → "홈 화면에 추가"를 눌러주세요.';
   }else{
     btn.disabled = false; btn.textContent = '📲 홈 화면에 추가';
-    hint.textContent = '브라우저 메뉴(⋮)에서 "앱 설치" 또는 "홈 화면에 추가"를 선택해도 됩니다.';
+    hint.textContent = '버튼이 안 먹으면 브라우저 메뉴(⋮) → "앱 설치"를 눌러보세요.';
   }
+  if(!$('installDiag').hidden) renderInstallDiag();
 }
 $('installApp').onclick = async () => {
   if(installPrompt){
@@ -1329,12 +1356,89 @@ $('installApp').onclick = async () => {
     const { outcome } = await installPrompt.userChoice;
     installPrompt = null; updateInstallUI();
     if(outcome !== 'accepted') toast('설치를 취소했어요. 언제든 다시 할 수 있습니다.');
+  }else if(inAppName()){
+    try{
+      await navigator.clipboard.writeText(location.href);
+      toast('링크를 복사했어요. 크롬에 붙여넣어 주세요.');
+    }catch{
+      toast('메뉴에서 "다른 브라우저로 열기"를 선택해주세요.');
+    }
   }else if(isIOS()){
     toast('사파리 하단 공유 버튼 → "홈 화면에 추가"를 눌러주세요.');
   }else{
     toast('브라우저 메뉴(⋮)에서 "앱 설치"를 선택해주세요.');
   }
 };
+
+/* --- 설치 진단: 크롬이 설치를 막는 조건을 하나씩 확인해 보여준다 --- */
+$('installDiagToggle').onclick = () => {
+  const box = $('installDiag');
+  box.hidden = !box.hidden;
+  $('installDiagToggle').textContent = box.hidden ? '설치가 안 되면 눌러보세요 →' : '진단 닫기';
+  if(!box.hidden) renderInstallDiag();
+};
+
+async function collectInstallDiag(){
+  const rows = [];
+  const app = inAppName();
+
+  rows.push([isSecureContext, '안전한 연결(HTTPS)',
+    isSecureContext ? location.host : '파일을 직접 열면 설치할 수 없어요']);
+
+  rows.push([!app, app ? `${app} 안의 브라우저` : '설치를 지원하는 브라우저',
+    app ? '이 브라우저에는 설치 기능이 없어요. 크롬으로 열어주세요.' : '']);
+
+  try{
+    const res = await fetch('manifest.json', { cache: 'no-store' });
+    const m = res.ok ? await res.json() : null;
+    const icons = ((m && m.icons) || []).filter(i => /\b(192|512)\b/.test(i.sizes || ''));
+    rows.push([!!m && !!m.name && icons.length > 0, '앱 정보(manifest)',
+      m ? `${m.name} · 아이콘 ${icons.length}개` : `불러오지 못했어요 (${res.status})`]);
+  }catch{
+    rows.push([false, '앱 정보(manifest)', '불러오지 못했어요']);
+  }
+
+  if('serviceWorker' in navigator){
+    let reg = null;
+    try{ reg = await navigator.serviceWorker.getRegistration() }catch{}
+    const live = !!navigator.serviceWorker.controller;
+    rows.push([!!reg && live, '오프라인 기능(서비스워커)',
+      !reg ? '등록되지 않았어요. 시크릿 모드에서는 동작하지 않습니다.'
+           : live ? '동작 중' : '등록됐어요. 한 번 새로고침하면 설치가 열립니다.']);
+  }else{
+    rows.push([false, '오프라인 기능(서비스워커)', '이 브라우저는 지원하지 않아요']);
+  }
+
+  if(isStandalone()) rows.push([true, '설치 상태', '이미 앱으로 실행 중입니다']);
+  else if(installPrompt) rows.push([true, '설치 준비 완료', '위 버튼을 누르면 바로 설치됩니다']);
+  else if(isIOS()) rows.push([false, '설치 준비', '아이폰은 사파리 공유 → "홈 화면에 추가"만 가능해요']);
+  else rows.push([false, '설치 준비 안 됨',
+    '이미 설치되어 있거나(홈 화면을 확인해보세요), 새로고침이 한 번 필요할 수 있어요']);
+
+  return rows;
+}
+
+async function renderInstallDiag(){
+  const box = $('installDiag');
+  box.textContent = '확인 중…';
+  const rows = await collectInstallDiag();
+  box.textContent = '';
+  rows.forEach(([ok, label, detail]) => {
+    const row = document.createElement('div');
+    row.className = 'diag-row' + (ok ? '' : ' bad');
+    const mark = document.createElement('span');
+    mark.className = 'diag-mark'; mark.textContent = ok ? '✅' : '⚠️';
+    const text = document.createElement('span');
+    text.className = 'diag-label'; text.textContent = label;
+    if(detail){
+      const d = document.createElement('span');
+      d.className = 'diag-detail'; d.textContent = detail;
+      text.appendChild(d);
+    }
+    row.append(mark, text);
+    box.appendChild(row);
+  });
+}
 
 /* --- 백업 --- */
 function updateBackupHint(){
@@ -1464,8 +1568,11 @@ renderAll();
 updateInstallUI();
 updateBackupHint();
 
+// 바로 등록한다. load까지 기다리면 크롬이 첫 방문에서 설치 조건을 확인하기 전에
+// 서비스워커가 없어서 "앱 설치" 메뉴가 뜨지 않는 경우가 생긴다.
 if('serviceWorker' in navigator){
-  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  navigator.serviceWorker.register('sw.js').then(updateInstallUI).catch(()=>{});
+  navigator.serviceWorker.addEventListener('controllerchange', updateInstallUI);
 }
 
 fetch(TOPO_URL)
